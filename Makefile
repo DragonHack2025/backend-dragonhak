@@ -23,7 +23,7 @@ GREEN=\033[0;32m
 BLUE=\033[0;34m
 NC=\033[0m # No Color
 
-.PHONY: all build test run lint clean
+.PHONY: build test run lint clean
 
 # Default target - runs the most common tasks in sequence
 default: deps build lint test

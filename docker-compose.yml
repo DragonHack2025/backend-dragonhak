@@ -2,12 +2,13 @@ version: '3.8'
 
 services:
   app:
-    image: ${DOCKER_IMAGE:-backend-dragonhak}
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    environment:
-      - MONGODB_URI=${MONGODB_URI}
-      - REDIS_URL=${REDIS_URL}
+    volumes:
+      - ./.env:/app/.env
     depends_on:
       - mongodb
       - redis
@@ -18,6 +19,8 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
+      - ./mongodb.conf:/etc/mongod.conf
+    command: ["--config", "/etc/mongod.conf"]
 
   redis:
     image: redis:alpine
