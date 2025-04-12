@@ -24,16 +24,20 @@ var (
 )
 
 func init() {
-	// Load environment variables
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	// Try to load .env file, but don't fail if it doesn't exist
+	_ = godotenv.Load()
 
 	// Set up MongoDB connection
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	clientOptions := options.Client().ApplyURI(os.Getenv("MONGODB_URI"))
+	// Get MongoDB URI from environment
+	mongodbURI := os.Getenv("MONGODB_URI")
+	if mongodbURI == "" {
+		log.Fatal("MONGODB_URI environment variable is not set")
+	}
+
+	clientOptions := options.Client().ApplyURI(mongodbURI)
 	var err error
 	client, err = mongo.Connect(ctx, clientOptions)
 	if err != nil {
@@ -54,9 +58,15 @@ func init() {
 	handlers.Collections.Crafts = db.Collection("crafts")
 	handlers.Collections.Workshops = db.Collection("workshops")
 
+	// Get Redis address from environment
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		log.Fatal("REDIS_ADDR environment variable is not set")
+	}
+
 	// Initialize rate limiter
-	rateLimiter = middleware.NewRateLimiter(os.Getenv("REDIS_ADDR"))
-	emailVerifier = handlers.NewEmailVerifier(os.Getenv("REDIS_ADDR"))
+	rateLimiter = middleware.NewRateLimiter(redisAddr)
+	emailVerifier = handlers.NewEmailVerifier(redisAddr)
 }
 
 func main() {
