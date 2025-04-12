@@ -1,0 +1,19 @@
+# Environment variables
+.env
+
+# OS files
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work 
