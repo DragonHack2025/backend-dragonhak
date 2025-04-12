@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"log"
 	"os"
 	"strconv"
@@ -27,29 +28,60 @@ func init() {
 	// Try to load .env file, but don't fail if it doesn't exist
 	_ = godotenv.Load()
 
-	// Set up MongoDB connection
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	// Get MongoDB URI from environment
 	mongodbURI := os.Getenv("MONGODB_URI")
 	if mongodbURI == "" {
 		log.Fatal("MONGODB_URI environment variable is not set")
 	}
 
-	clientOptions := options.Client().ApplyURI(mongodbURI)
+	log.Printf("Attempting to connect to MongoDB with URI: %s", mongodbURI)
+
+	// Set up MongoDB connection with increased timeouts
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Configure client options with explicit TLS settings
+	clientOptions := options.Client().
+		ApplyURI(mongodbURI).
+		SetServerSelectionTimeout(30 * time.Second).
+		SetSocketTimeout(30 * time.Second).
+		SetConnectTimeout(30 * time.Second).
+		SetTLSConfig(&tls.Config{
+			InsecureSkipVerify: false,
+			MinVersion:         tls.VersionTLS12,
+		}).
+		SetAppName("dragonhak-backend").
+		SetRetryWrites(true).
+		SetRetryReads(true)
+
+	// Add logging for connection attempt
+	log.Println("Creating MongoDB client with options...")
+
 	var err error
 	client, err = mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to create MongoDB client: %v", err)
 	}
 
-	// Check the connection
-	err = client.Ping(ctx, nil)
-	if err != nil {
-		log.Fatal(err)
+	// Add logging for connection check
+	log.Println("Checking MongoDB connection...")
+
+	// Check the connection with retry
+	var pingErr error
+	for i := 0; i < 3; i++ {
+		pingErr = client.Ping(ctx, nil)
+		if pingErr == nil {
+			break
+		}
+		log.Printf("Connection attempt %d failed: %v", i+1, pingErr)
+		time.Sleep(2 * time.Second)
 	}
-	log.Println("Connected to MongoDB!")
+
+	if pingErr != nil {
+		log.Fatalf("Failed to connect to MongoDB after retries: %v", pingErr)
+	}
+
+	log.Println("Successfully connected to MongoDB!")
 
 	// Initialize collections
 	db := client.Database("dragonhak")
@@ -91,10 +123,37 @@ func main() {
 
 	// Configure CORS
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"http://localhost:3000"} // Add your frontend URL
+	config.AllowOrigins = []string{"*"} // Allow all origins in production
 	config.AllowCredentials = true
 	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
 	router.Use(cors.New(config))
+
+	// Health check endpoints
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status": "ok",
+			"time":   time.Now().Unix(),
+		})
+	})
+
+	router.GET("/health/db", func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		err := client.Ping(ctx, nil)
+		if err != nil {
+			c.JSON(500, gin.H{
+				"status": "error",
+				"error":  err.Error(),
+			})
+			return
+		}
+
+		c.JSON(200, gin.H{
+			"status":   "ok",
+			"database": "connected",
+		})
+	})
 
 	// Basic route
 	router.GET("/", func(c *gin.Context) {
