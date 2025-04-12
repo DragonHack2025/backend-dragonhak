@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"log"
 	"os"
 	"strconv"
@@ -41,7 +42,12 @@ func init() {
 		SetServerAPIOptions(serverAPI).
 		SetServerSelectionTimeout(30 * time.Second).
 		SetSocketTimeout(30 * time.Second).
-		SetConnectTimeout(30 * time.Second)
+		SetConnectTimeout(30 * time.Second).
+		SetTLSConfig(&tls.Config{
+			InsecureSkipVerify: false,
+			MinVersion:         tls.VersionTLS12,
+		}).
+		SetAppName("Cluster0")
 
 	// Add logging for connection attempt
 	log.Println("Creating MongoDB client with options...")
@@ -59,9 +65,19 @@ func init() {
 	// Add logging for connection check
 	log.Println("Checking MongoDB connection...")
 
-	// Send a ping to confirm a successful connection
-	if err := client.Ping(ctx, readpref.Primary()); err != nil {
-		log.Fatalf("Failed to connect to MongoDB: %v", err)
+	// Send a ping to confirm a successful connection with retry
+	var pingErr error
+	for i := 0; i < 3; i++ {
+		pingErr = client.Ping(ctx, readpref.Primary())
+		if pingErr == nil {
+			break
+		}
+		log.Printf("Connection attempt %d failed: %v", i+1, pingErr)
+		time.Sleep(2 * time.Second)
+	}
+
+	if pingErr != nil {
+		log.Fatalf("Failed to connect to MongoDB after retries: %v", pingErr)
 	}
 
 	log.Println("Successfully connected to MongoDB!")
