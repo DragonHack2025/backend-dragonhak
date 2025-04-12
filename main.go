@@ -46,8 +46,7 @@ func init() {
 		SetTLSConfig(&tls.Config{
 			InsecureSkipVerify: false,
 			MinVersion:         tls.VersionTLS12,
-		}).
-		SetAppName("Cluster0")
+		})
 
 	// Add logging for connection attempt
 	log.Println("Creating MongoDB client with options...")
@@ -172,6 +171,7 @@ func main() {
 	authRoutes.Use(rateLimiter.Limit(maxRequests, time.Duration(window)*time.Second))
 	{
 		authRoutes.POST("/login", handlers.Login)
+		authRoutes.POST("/register", handlers.CreateUser)
 		authRoutes.POST("/refresh", handlers.RefreshToken)
 		authRoutes.POST("/logout", middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")), handlers.Logout)
 	}
@@ -182,7 +182,6 @@ func main() {
 	{
 		userRoutes.GET("/", handlers.GetUsers)
 		userRoutes.GET("/:id", handlers.GetUser)
-		userRoutes.POST("/", handlers.CreateUser)
 		userRoutes.PUT("/:id", handlers.UpdateUser)
 		userRoutes.DELETE("/:id", handlers.DeleteUser)
 		userRoutes.GET("/:id/badges", handlers.GetUserBadges)
