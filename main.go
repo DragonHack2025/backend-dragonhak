@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"log"
 	"os"
 	"strconv"
@@ -16,6 +15,7 @@ import (
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 var (
@@ -34,28 +34,21 @@ func init() {
 		log.Fatal("MONGODB_URI environment variable is not set")
 	}
 
-	log.Printf("Attempting to connect to MongoDB with URI: %s", mongodbURI)
-
-	// Set up MongoDB connection with increased timeouts
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	// Configure client options with explicit TLS settings
+	// Set up MongoDB connection with Stable API
+	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
 	clientOptions := options.Client().
 		ApplyURI(mongodbURI).
+		SetServerAPIOptions(serverAPI).
 		SetServerSelectionTimeout(30 * time.Second).
 		SetSocketTimeout(30 * time.Second).
-		SetConnectTimeout(30 * time.Second).
-		SetTLSConfig(&tls.Config{
-			InsecureSkipVerify: false,
-			MinVersion:         tls.VersionTLS12,
-		}).
-		SetAppName("dragonhak-backend").
-		SetRetryWrites(true).
-		SetRetryReads(true)
+		SetConnectTimeout(30 * time.Second)
 
 	// Add logging for connection attempt
 	log.Println("Creating MongoDB client with options...")
+
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	var err error
 	client, err = mongo.Connect(ctx, clientOptions)
@@ -66,25 +59,21 @@ func init() {
 	// Add logging for connection check
 	log.Println("Checking MongoDB connection...")
 
-	// Check the connection with retry
-	var pingErr error
-	for i := 0; i < 3; i++ {
-		pingErr = client.Ping(ctx, nil)
-		if pingErr == nil {
-			break
-		}
-		log.Printf("Connection attempt %d failed: %v", i+1, pingErr)
-		time.Sleep(2 * time.Second)
-	}
-
-	if pingErr != nil {
-		log.Fatalf("Failed to connect to MongoDB after retries: %v", pingErr)
+	// Send a ping to confirm a successful connection
+	if err := client.Ping(ctx, readpref.Primary()); err != nil {
+		log.Fatalf("Failed to connect to MongoDB: %v", err)
 	}
 
 	log.Println("Successfully connected to MongoDB!")
 
-	// Initialize collections
-	db := client.Database("dragonhak")
+	// Get database name from environment
+	dbName := os.Getenv("MONGODB_DATABASE")
+	if dbName == "" {
+		log.Fatal("MONGODB_DATABASE environment variable is not set")
+	}
+
+	// Initialize collections with database name from environment
+	db := client.Database(dbName)
 	handlers.Collections.Users = db.Collection("users")
 	handlers.Collections.CraftsmanProfiles = db.Collection("craftsman_profiles")
 	handlers.Collections.Crafts = db.Collection("crafts")
@@ -137,11 +126,7 @@ func main() {
 	})
 
 	router.GET("/health/db", func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		err := client.Ping(ctx, nil)
-		if err != nil {
+		if err := client.Ping(context.TODO(), readpref.Primary()); err != nil {
 			c.JSON(500, gin.H{
 				"status": "error",
 				"error":  err.Error(),
@@ -235,7 +220,7 @@ func main() {
 	// Get port from environment variable or use default
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "5000"
+		port = "8080"
 	}
 
 	// Start server
