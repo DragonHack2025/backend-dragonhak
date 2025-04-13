@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"net/http"
-	"regexp"
 	"time"
 
 	"backend-dragonhak/auth"
@@ -138,16 +137,6 @@ func CreateUser(c *gin.Context) {
 	// Don't return the hashed password
 	user.Password = ""
 	c.JSON(http.StatusCreated, user)
-}
-
-// isValidEmail checks if the email format is valid
-func isValidEmail(email string) bool {
-	// Basic email validation
-	// This is a simple regex that checks for basic email format
-	// For production, you might want to use a more comprehensive validation
-	emailRegex := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
-	matched, _ := regexp.MatchString(emailRegex, email)
-	return matched
 }
 
 // UpdateUser handles updating a user

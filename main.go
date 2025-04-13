@@ -287,11 +287,11 @@ func main() {
 	marketplaceRoutes := router.Group("/api/marketplace")
 	marketplaceRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
 	{
-		marketplaceRoutes.POST("/auctions", wrapHandler(handlers.CreateAuction))
-		marketplaceRoutes.GET("/auctions", wrapHandler(handlers.GetAuctions))
-		marketplaceRoutes.GET("/auctions/:id", wrapHandler(handlers.GetAuction))
-		marketplaceRoutes.POST("/auctions/:id/bids", wrapHandler(handlers.PlaceBid))
-		marketplaceRoutes.GET("/auctions/:id/bids", wrapHandler(handlers.GetAuctionBids))
+		marketplaceRoutes.POST("/auctions", handlers.CreateAuction)
+		marketplaceRoutes.GET("/auctions", handlers.GetAuctions)
+		marketplaceRoutes.GET("/auctions/:id", handlers.GetAuction)
+		marketplaceRoutes.POST("/auctions/:id/bids", handlers.PlaceBid)
+		marketplaceRoutes.GET("/auctions/:id/bids", handlers.GetAuctionBids)
 	}
 
 	// Get port from environment variable or use default
