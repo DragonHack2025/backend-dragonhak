@@ -46,6 +46,8 @@ func Login(c *gin.Context) {
 	// Generate token pair
 	tokenPair, err := auth.GenerateTokenPair(
 		user.ID,
+		user.Name,
+		user.Surname,
 		string(user.Role),
 		os.Getenv("JWT_ACCESS_SECRET"),
 		os.Getenv("JWT_REFRESH_SECRET"),

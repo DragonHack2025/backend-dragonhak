@@ -22,17 +22,21 @@ type TokenPair struct {
 }
 
 type Claims struct {
-	UserID primitive.ObjectID `json:"user_id"`
-	Role   string             `json:"role"`
+	UserID  primitive.ObjectID `json:"user_id"`
+	Name    string             `json:"name"`
+	Surname string             `json:"surname"`
+	Role    string             `json:"role"`
 	jwt.RegisteredClaims
 }
 
 // GenerateTokenPair generates both access and refresh tokens
-func GenerateTokenPair(userID primitive.ObjectID, role string, accessSecret, refreshSecret string) (*TokenPair, error) {
+func GenerateTokenPair(userID primitive.ObjectID, name, surname, role string, accessSecret, refreshSecret string) (*TokenPair, error) {
 	// Generate access token (15 minutes)
 	accessClaims := Claims{
-		UserID: userID,
-		Role:   role,
+		UserID:  userID,
+		Name:    name,
+		Surname: surname,
+		Role:    role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

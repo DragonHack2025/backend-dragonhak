@@ -93,6 +93,8 @@ func CreateCraftsmanProfile(c *gin.Context) {
 	// Generate token pair
 	tokenPair, err := auth.GenerateTokenPair(
 		userID,
+		user.Name,
+		user.Surname,
 		string(user.Role),
 		os.Getenv("JWT_ACCESS_SECRET"),
 		os.Getenv("JWT_REFRESH_SECRET"),
