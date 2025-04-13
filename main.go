@@ -190,8 +190,10 @@ func main() {
 	// Configure CORS
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{"*"} // Allow all origins in production
+	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"}
+	config.ExposeHeaders = []string{"Content-Length"}
 	config.AllowCredentials = true
-	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
 	router.Use(cors.New(config))
 
 	// Health check endpoints

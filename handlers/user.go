@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"os"
 	"time"
 
 	"backend-dragonhak/auth"
@@ -125,6 +126,7 @@ func CreateUser(c *gin.Context) {
 		Password:  hashedPassword,
 		Role:      models.UserRole(req.Role),
 		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	result, err := Collections.Users.InsertOne(ctx, user)
@@ -134,9 +136,30 @@ func CreateUser(c *gin.Context) {
 	}
 
 	user.ID = result.InsertedID.(primitive.ObjectID)
+
+	// Generate token pair
+	tokenPair, err := auth.GenerateTokenPair(
+		user.ID,
+		string(user.Role),
+		os.Getenv("JWT_ACCESS_SECRET"),
+		os.Getenv("JWT_REFRESH_SECRET"),
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate tokens"})
+		return
+	}
+
 	// Don't return the hashed password
 	user.Password = ""
-	c.JSON(http.StatusCreated, user)
+	c.JSON(http.StatusCreated, gin.H{
+		"access_token":  tokenPair.AccessToken,
+		"refresh_token": tokenPair.RefreshToken,
+		"user": gin.H{
+			"id":    user.ID.Hex(),
+			"email": user.Email,
+			"role":  user.Role,
+		},
+	})
 }
 
 // UpdateUser handles updating a user
