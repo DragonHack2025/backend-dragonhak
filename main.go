@@ -186,25 +186,27 @@ func main() {
 
 	// User routes
 	userRoutes := router.Group("/api/users")
-	// userRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
 	{
 		userRoutes.GET("/", handlers.GetUsers)
 		userRoutes.GET("/:id", handlers.GetUser)
-		userRoutes.PUT("/:id", handlers.UpdateUser)
-		userRoutes.DELETE("/:id", handlers.DeleteUser)
-		userRoutes.GET("/:id/badges", handlers.GetUserBadges)
+		userRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
+		{
+			userRoutes.PUT("/:id", handlers.UpdateUser)
+			userRoutes.DELETE("/:id", handlers.DeleteUser)
+			userRoutes.GET("/:id/badges", handlers.GetUserBadges)
 
-		// Email verification routes
-		userRoutes.POST("/verify/send", emailVerifier.SendVerificationEmail)
-		userRoutes.GET("/verify", emailVerifier.VerifyEmail)
+			// Email verification routes
+			userRoutes.POST("/verify/send", emailVerifier.SendVerificationEmail)
+			userRoutes.GET("/verify", emailVerifier.VerifyEmail)
+		}
 	}
 
 	// Craftsman routes
 	craftsmanRoutes := router.Group("/api/craftsmen")
 	{
+		craftsmanRoutes.GET("", handlers.GetCraftsmen)
 		craftsmanRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
 		{
-			craftsmanRoutes.GET("", handlers.GetCraftsmen)
 			craftsmanRoutes.GET("/:id", handlers.GetCraftsman)
 			craftsmanRoutes.PUT("/:id", handlers.UpdateCraftsman)
 			craftsmanRoutes.DELETE("/:id", handlers.DeleteCraftsman)
@@ -213,17 +215,19 @@ func main() {
 
 	// Customer routes
 	customerRoutes := router.Group("/api/customers")
-	// customerRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
 	{
 		customerRoutes.GET("/search/craftsmen", handlers.SearchCraftsmen)
 		customerRoutes.GET("/search/workshops", handlers.SearchWorkshops)
-		customerRoutes.POST("/bookings", handlers.BookWorkshop)
-		customerRoutes.GET("/:id/bookings", handlers.GetCustomerBookings)
+		customerRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
+		{
+			customerRoutes.POST("/bookings", handlers.BookWorkshop)
+			customerRoutes.GET("/:id/bookings", handlers.GetCustomerBookings)
+		}
 	}
 
 	// Badge routes
 	badgeRoutes := router.Group("/api/badges")
-	// badgeRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
+	badgeRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
 	{
 		badgeRoutes.POST("/", handlers.CreateBadge)
 		badgeRoutes.GET("/", handlers.GetBadges)
@@ -232,13 +236,15 @@ func main() {
 
 	// Auction routes
 	auctionRoutes := router.Group("/api/auctions")
-	auctionRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
 	{
-		auctionRoutes.POST("/", handlers.CreateAuction)
 		auctionRoutes.GET("/", handlers.GetAuctions)
 		auctionRoutes.GET("/:id", handlers.GetAuction)
-		auctionRoutes.POST("/:id/bids", handlers.PlaceBid)
-		auctionRoutes.GET("/:id/bids", handlers.GetAuctionBids)
+		auctionRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
+		{
+			auctionRoutes.POST("/", handlers.CreateAuction)
+			auctionRoutes.POST("/:id/bids", handlers.PlaceBid)
+			auctionRoutes.GET("/:id/bids", handlers.GetAuctionBids)
+		}
 	}
 
 	// Get port from environment variable or use default
