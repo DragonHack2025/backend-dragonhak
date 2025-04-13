@@ -42,7 +42,7 @@ func SearchCraftsmen(c *gin.Context) {
 	}
 
 	var craftsmen []models.Craftsman
-	cursor, err := Collections.CraftsmanProfiles.Find(ctx, filter)
+	cursor, err := Collections.Craftsmen.Find(ctx, filter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

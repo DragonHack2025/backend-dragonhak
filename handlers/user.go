@@ -228,34 +228,6 @@ func DeleteUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
 }
 
-// GetCraftsmen retrieves all craftsmen
-func GetCraftsmen(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	var craftsmen []models.User
-	filter := bson.M{"role": "craftsman"}
-
-	cursor, err := Collections.Users.Find(ctx, filter)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	defer cursor.Close(ctx)
-
-	if err = cursor.All(ctx, &craftsmen); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Don't return passwords
-	for i := range craftsmen {
-		craftsmen[i].Password = ""
-	}
-
-	c.JSON(http.StatusOK, craftsmen)
-}
-
 // RegisterUserRoutes registers all user-related routes
 func RegisterUserRoutes(router *gin.Engine) {
 	users := router.Group("/users")
@@ -265,6 +237,5 @@ func RegisterUserRoutes(router *gin.Engine) {
 		users.GET("/:id", GetUser)
 		users.PUT("/:id", UpdateUser)
 		users.DELETE("/:id", DeleteUser)
-		users.GET("/craftsmen", GetCraftsmen)
 	}
 }

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"log"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -85,9 +86,11 @@ func ValidateToken(tokenString string, secretKey string) (*Claims, error) {
 	}
 
 	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		log.Printf("ValidateToken: Successfully parsed claims with user_id: %s", claims.UserID.Hex())
 		return claims, nil
 	}
 
+	log.Printf("ValidateToken: Failed to parse claims or token is invalid")
 	return nil, ErrInvalidClaims
 }
 

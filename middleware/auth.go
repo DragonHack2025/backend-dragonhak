@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log"
 	"net/http"
 	"strings"
 
@@ -40,8 +41,11 @@ func AuthMiddleware(secretKey string) gin.HandlerFunc {
 			return
 		}
 
+		// Log the user ID before setting it
+		log.Printf("AuthMiddleware: Setting user_id to %s", claims.UserID.Hex())
+
 		// Add the claims to the context
-		c.Set("user_id", claims.UserID)
+		c.Set("user_id", claims.UserID.Hex())
 		c.Set("role", claims.Role)
 
 		c.Next()

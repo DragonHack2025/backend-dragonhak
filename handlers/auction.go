@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -47,12 +48,21 @@ func CreateAuction(c *gin.Context) {
 	auction.StartTime = time.Now()
 
 	// Get seller ID from context
-	userID := c.GetString("userID")
-	objID, err := primitive.ObjectIDFromHex(userID)
-	if err != nil {
+	userID := c.GetString("user_id")
+	log.Printf("CreateAuction: Got user_id from context: %s", userID)
+	if userID == "" {
+		log.Printf("CreateAuction: user_id is empty")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
 	}
+
+	objID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		log.Printf("CreateAuction: Failed to convert user_id to ObjectID: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+	log.Printf("CreateAuction: Successfully converted user_id to ObjectID: %s", objID.Hex())
 	auction.SellerID = objID
 
 	// Insert the auction into the database
@@ -134,7 +144,7 @@ func PlaceBid(c *gin.Context) {
 	}
 
 	// Get bidder ID from context
-	userID := c.GetString("userID")
+	userID := c.GetString("user_id")
 	objID, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})

@@ -21,48 +21,49 @@ func TestCreateCraftsmanProfileHandler(t *testing.T) {
 	SetupTestDB(t)
 	defer CleanupTestDB(t)
 
-	// Create a test user first
-	userID := createTestUser(t)
-
 	// Create test router
 	router := gin.Default()
-	router.POST("/api/craftsmen/profile", CreateCraftsmanProfile)
+	router.POST("/api/craftsmen", CreateCraftsmanProfile)
 
 	// Test cases
 	tests := []struct {
 		name           string
-		payload        models.Craftsman
+		payload        map[string]interface{}
 		expectedStatus int
 	}{
 		{
 			name: "Valid profile",
-			payload: models.Craftsman{
-				UserID:     userID,
-				Bio:        "Test bio",
-				Experience: 5,
-				Rating:     4.5,
-				Location:   "New York",
-				ContactInfo: models.ContactInformation{
-					Phone:   "1234567890",
-					Website: "https://example.com",
-					SocialMedia: map[string]string{
+			payload: map[string]interface{}{
+				"username":   "testcraftsman",
+				"email":      "test@example.com",
+				"password":   "password123",
+				"bio":        "Test bio",
+				"experience": 5,
+				"rating":     4.5,
+				"location":   "New York",
+				"contact_info": map[string]interface{}{
+					"phone":   "1234567890",
+					"website": "https://example.com",
+					"social_media": map[string]string{
 						"instagram": "@craftsman",
 					},
 				},
-				IsVerified: true,
+				"is_verified": true,
 			},
 			expectedStatus: http.StatusCreated,
 		},
 		{
 			name: "Missing bio",
-			payload: models.Craftsman{
-				UserID:     userID,
-				Experience: 3,
-				Rating:     4.0,
-				Location:   "Los Angeles",
-				ContactInfo: models.ContactInformation{
-					Phone:   "0987654321",
-					Website: "https://example2.com",
+			payload: map[string]interface{}{
+				"username":   "testcraftsman2",
+				"email":      "test2@example.com",
+				"password":   "password123",
+				"experience": 3,
+				"rating":     4.0,
+				"location":   "Los Angeles",
+				"contact_info": map[string]interface{}{
+					"phone":   "0987654321",
+					"website": "https://example2.com",
 				},
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -76,7 +77,7 @@ func TestCreateCraftsmanProfileHandler(t *testing.T) {
 			assert.NoError(t, err)
 
 			// Create request
-			req, err := http.NewRequest("POST", "/api/craftsmen/profile", bytes.NewBuffer(jsonData))
+			req, err := http.NewRequest("POST", "/api/craftsmen", bytes.NewBuffer(jsonData))
 			assert.NoError(t, err)
 			req.Header.Set("Content-Type", "application/json")
 
@@ -96,22 +97,29 @@ func TestCreateCraftsmanProfileHandler(t *testing.T) {
 				assert.NoError(t, err)
 
 				// Check response fields
-				assert.NotEmpty(t, response["id"])
-				assert.Equal(t, tt.payload.Bio, response["bio"])
+				assert.NotEmpty(t, response["access_token"])
+				assert.NotEmpty(t, response["refresh_token"])
 
-				assert.Equal(t, tt.payload.Experience, int(response["experience"].(float64)))
-				assert.Equal(t, tt.payload.Rating, response["rating"])
-				assert.Equal(t, tt.payload.Location, response["location"])
+				// Check user fields
+				user := response["user"].(map[string]interface{})
+				assert.NotEmpty(t, user["id"])
+				assert.Equal(t, tt.payload["email"], user["email"])
+				assert.Equal(t, "craftsman", user["role"])
 
-				// Convert contact info from interface{} to models.ContactInformation
-				contactInfoJSON, err := json.Marshal(response["contact_info"])
-				assert.NoError(t, err)
-				var contactInfo models.ContactInformation
-				err = json.Unmarshal(contactInfoJSON, &contactInfo)
-				assert.NoError(t, err)
-				assert.Equal(t, tt.payload.ContactInfo, contactInfo)
+				// Check craftsman fields
+				craftsman := response["craftsman"].(map[string]interface{})
+				assert.NotEmpty(t, craftsman["id"])
+				assert.Equal(t, tt.payload["bio"], craftsman["bio"])
+				assert.Equal(t, tt.payload["experience"], int(craftsman["experience"].(float64)))
+				assert.Equal(t, tt.payload["rating"], craftsman["rating"])
+				assert.Equal(t, tt.payload["location"], craftsman["location"])
+				assert.Equal(t, tt.payload["is_verified"], craftsman["is_verified"])
 
-				assert.Equal(t, tt.payload.IsVerified, response["is_verified"])
+				// Check contact info
+				contactInfo := craftsman["contact_info"].(map[string]interface{})
+				expectedContactInfo := tt.payload["contact_info"].(map[string]interface{})
+				assert.Equal(t, expectedContactInfo["phone"], contactInfo["phone"])
+				assert.Equal(t, expectedContactInfo["website"], contactInfo["website"])
 			}
 		})
 	}

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"backend-dragonhak/models"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -187,9 +186,6 @@ func TestCreateCraftsmanProfile(t *testing.T) {
 	router := gin.Default()
 	router.POST("/craftsmen", CreateCraftsmanProfile)
 
-	// Create a test user
-	userID := createTestUser(t)
-
 	// Test cases
 	tests := []struct {
 		name           string
@@ -199,42 +195,43 @@ func TestCreateCraftsmanProfile(t *testing.T) {
 	}{
 		{
 			name: "Valid craftsman profile",
-			payload: models.Craftsman{
-				UserID:     userID,
-				Bio:        "Experienced woodworker",
-				Experience: 5,
-				Rating:     4.5,
-				Location:   "New York",
-				ContactInfo: models.ContactInformation{
-					Phone:   "+1234567890",
-					Website: "https://example.com",
-					SocialMedia: map[string]string{
+			payload: map[string]interface{}{
+				"username":   "testcraftsman",
+				"email":      "craftsman@example.com",
+				"password":   "StrongP@ss123",
+				"bio":        "Experienced woodworker",
+				"experience": 5,
+				"rating":     4.5,
+				"location":   "New York",
+				"contact_info": map[string]interface{}{
+					"phone":   "+1234567890",
+					"website": "https://example.com",
+					"social_media": map[string]string{
 						"instagram": "@woodworker",
 					},
 				},
-				IsVerified: true,
+				"is_verified": true,
 			},
 			expectedStatus: http.StatusCreated,
 		},
 		{
-			name: "Invalid user ID",
-			payload: models.Craftsman{
-				UserID:     primitive.NewObjectID(),
-				Bio:        "Experienced woodworker",
-				Experience: 5,
-				Rating:     4.5,
-				Location:   "New York",
-				ContactInfo: models.ContactInformation{
-					Phone:   "+1234567890",
-					Website: "https://example.com",
-					SocialMedia: map[string]string{
-						"instagram": "@woodworker",
-					},
+			name: "Invalid email format",
+			payload: map[string]interface{}{
+				"username":   "testcraftsman",
+				"email":      "invalid-email",
+				"password":   "StrongP@ss123",
+				"bio":        "Experienced woodworker",
+				"experience": 5,
+				"rating":     4.5,
+				"location":   "New York",
+				"contact_info": map[string]interface{}{
+					"phone":   "+1234567890",
+					"website": "https://example.com",
 				},
-				IsVerified: true,
+				"is_verified": true,
 			},
 			expectedStatus: http.StatusBadRequest,
-			expectedError:  "User not found",
+			expectedError:  "Field validation for 'Email' failed",
 		},
 	}
 
@@ -259,13 +256,30 @@ func TestCreateCraftsmanProfile(t *testing.T) {
 				var response map[string]interface{}
 				json.Unmarshal(w.Body.Bytes(), &response)
 
-				// Check response fields
-				assert.NotEmpty(t, response["id"])
-				assert.Equal(t, tt.payload.(models.Craftsman).Bio, response["bio"])
-				assert.Equal(t, tt.payload.(models.Craftsman).Experience, int(response["experience"].(float64)))
-				assert.Equal(t, tt.payload.(models.Craftsman).Rating, response["rating"])
-				assert.Equal(t, tt.payload.(models.Craftsman).Location, response["location"])
-				assert.Equal(t, tt.payload.(models.Craftsman).IsVerified, response["is_verified"])
+				// Check tokens
+				assert.NotEmpty(t, response["access_token"])
+				assert.NotEmpty(t, response["refresh_token"])
+
+				// Check user object
+				user := response["user"].(map[string]interface{})
+				assert.NotEmpty(t, user["id"])
+				assert.Equal(t, tt.payload.(map[string]interface{})["email"], user["email"])
+				assert.Equal(t, "craftsman", user["role"])
+
+				// Check craftsman object
+				craftsman := response["craftsman"].(map[string]interface{})
+				assert.NotEmpty(t, craftsman["id"])
+				assert.Equal(t, tt.payload.(map[string]interface{})["bio"], craftsman["bio"])
+				assert.Equal(t, tt.payload.(map[string]interface{})["experience"], int(craftsman["experience"].(float64)))
+				assert.Equal(t, tt.payload.(map[string]interface{})["rating"], craftsman["rating"])
+				assert.Equal(t, tt.payload.(map[string]interface{})["location"], craftsman["location"])
+				assert.Equal(t, tt.payload.(map[string]interface{})["is_verified"], craftsman["is_verified"])
+
+				// Check contact info
+				contactInfo := craftsman["contact_info"].(map[string]interface{})
+				expectedContactInfo := tt.payload.(map[string]interface{})["contact_info"].(map[string]interface{})
+				assert.Equal(t, expectedContactInfo["phone"], contactInfo["phone"])
+				assert.Equal(t, expectedContactInfo["website"], contactInfo["website"])
 			} else {
 				// Check error message
 				var response map[string]string

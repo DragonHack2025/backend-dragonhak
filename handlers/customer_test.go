@@ -31,7 +31,7 @@ func TestSearchCraftsmen(t *testing.T) {
 		Specialties: []models.CraftsmanSpeciality{
 			{
 				Name:        "woodworking",
-				Description: "Experienced woodworker",
+				Description: "Experienced woodworker",	
 			},
 		},
 		Experience: 10,
@@ -52,7 +52,7 @@ func TestSearchCraftsmen(t *testing.T) {
 	// Insert the profile into the database
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err := Collections.CraftsmanProfiles.InsertOne(ctx, craftsmanProfile)
+	_, err := Collections.Craftsmen.InsertOne(ctx, craftsmanProfile)
 	assert.NoError(t, err)
 
 	tests := []struct {
@@ -148,7 +148,7 @@ func TestBookWorkshop(t *testing.T) {
 	// Insert the profile into the database
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err := Collections.CraftsmanProfiles.InsertOne(ctx, craftsmanProfile)
+	_, err := Collections.Craftsmen.InsertOne(ctx, craftsmanProfile)
 	assert.NoError(t, err)
 
 	// Create test workshop

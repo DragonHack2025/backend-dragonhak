@@ -3,54 +3,123 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"os"
 	"time"
 
+	"backend-dragonhak/auth"
 	"backend-dragonhak/models"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"golang.org/x/crypto/bcrypt"
 )
 
-// CreateCraftsmanProfile handles creating a new craftsman profile
+// CreateCraftsmanProfile creates a new craftsman profile
 func CreateCraftsmanProfile(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	var profile models.Craftsman
-	if err := c.ShouldBindJSON(&profile); err != nil {
+	var request struct {
+		Username    string                    `json:"username" binding:"required"`
+		Email       string                    `json:"email" binding:"required,email"`
+		Password    string                    `json:"password" binding:"required,min=8"`
+		Bio         string                    `json:"bio" binding:"required"`
+		Experience  int                       `json:"experience" binding:"required,min=0"`
+		Rating      float64                   `json:"rating" binding:"required,min=0,max=5"`
+		Location    string                    `json:"location" binding:"required"`
+		ContactInfo models.ContactInformation `json:"contact_info" binding:"required"`
+		IsVerified  bool                      `json:"is_verified"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Validate required fields
-	if profile.Bio == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bio is required"})
+	// Check if email already exists
+	var existingUser models.User
+	err := Collections.Users.FindOne(ctx, bson.M{"email": request.Email}).Decode(&existingUser)
+	if err == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email already exists"})
 		return
 	}
 
-	// Check if user exists
-	var user models.User
-	err := Collections.Users.FindOne(ctx, bson.M{"_id": profile.UserID}).Decode(&user)
+	// Create user
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(request.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "User not found"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
 		return
 	}
 
-	// Set timestamps
-	profile.CreatedAt = time.Now()
-	profile.UpdatedAt = time.Now()
+	user := models.User{
+		Username:  request.Username,
+		Email:     request.Email,
+		Password:  string(hashedPassword),
+		Role:      "craftsman",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
 
-	// Insert the profile
-	result, err := Collections.CraftsmanProfiles.InsertOne(ctx, profile)
+	userResult, err := Collections.Users.InsertOne(ctx, user)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return
 	}
 
-	// Return the created profile with ID
-	profile.ID = result.InsertedID.(primitive.ObjectID)
-	c.JSON(http.StatusCreated, profile)
+	userID := userResult.InsertedID.(primitive.ObjectID)
+
+	// Create craftsman profile
+	craftsman := models.Craftsman{
+		UserID:      userID,
+		Bio:         request.Bio,
+		Experience:  request.Experience,
+		Rating:      request.Rating,
+		Location:    request.Location,
+		ContactInfo: request.ContactInfo,
+		IsVerified:  request.IsVerified,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	craftsmanResult, err := Collections.Craftsmen.InsertOne(ctx, craftsman)
+	if err != nil {
+		// If craftsman creation fails, delete the user
+		Collections.Users.DeleteOne(ctx, bson.M{"_id": userID})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create craftsman profile"})
+		return
+	}
+
+	// Generate token pair
+	tokenPair, err := auth.GenerateTokenPair(
+		userID,
+		string(user.Role),
+		os.Getenv("JWT_ACCESS_SECRET"),
+		os.Getenv("JWT_REFRESH_SECRET"),
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate tokens"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"access_token":  tokenPair.AccessToken,
+		"refresh_token": tokenPair.RefreshToken,
+		"user": gin.H{
+			"id":    userID.Hex(),
+			"email": user.Email,
+			"role":  user.Role,
+		},
+		"craftsman": gin.H{
+			"id":           craftsmanResult.InsertedID.(primitive.ObjectID).Hex(),
+			"bio":          craftsman.Bio,
+			"experience":   craftsman.Experience,
+			"rating":       craftsman.Rating,
+			"location":     craftsman.Location,
+			"contact_info": craftsman.ContactInfo,
+			"is_verified":  craftsman.IsVerified,
+		},
+	})
 }
 
 // CreateCraft handles creating a new craft
@@ -228,7 +297,7 @@ func UpdateCraftsmanProfile(c *gin.Context) {
 	}
 
 	// Update the profile
-	result, err := Collections.CraftsmanProfiles.UpdateOne(
+	result, err := Collections.Craftsmen.UpdateOne(
 		ctx,
 		bson.M{"_id": objID},
 		update,
@@ -249,4 +318,117 @@ func UpdateCraftsmanProfile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Profile updated successfully"})
+}
+
+// GetCraftsmen retrieves all craftsmen
+func GetCraftsmen(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var craftsmen []models.Craftsman
+	cursor, err := Collections.Craftsmen.Find(ctx, bson.M{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer cursor.Close(ctx)
+
+	if err = cursor.All(ctx, &craftsmen); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, craftsmen)
+}
+
+// GetCraftsman retrieves a specific craftsman by ID
+func GetCraftsman(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	id := c.Param("id")
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
+		return
+	}
+
+	var craftsman models.Craftsman
+	err = Collections.Craftsmen.FindOne(ctx, bson.M{"_id": objectID}).Decode(&craftsman)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Craftsman not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, craftsman)
+}
+
+// UpdateCraftsman updates a craftsman's profile
+func UpdateCraftsman(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	id := c.Param("id")
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
+		return
+	}
+
+	var craftsman models.Craftsman
+	if err := c.ShouldBindJSON(&craftsman); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"bio":          craftsman.Bio,
+			"experience":   craftsman.Experience,
+			"rating":       craftsman.Rating,
+			"location":     craftsman.Location,
+			"contact_info": craftsman.ContactInfo,
+			"is_verified":  craftsman.IsVerified,
+			"updated_at":   time.Now(),
+		},
+	}
+
+	result, err := Collections.Craftsmen.UpdateOne(ctx, bson.M{"_id": objectID}, update)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if result.MatchedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Craftsman not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Craftsman updated successfully"})
+}
+
+// DeleteCraftsman deletes a craftsman's profile
+func DeleteCraftsman(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	id := c.Param("id")
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
+		return
+	}
+
+	result, err := Collections.Craftsmen.DeleteOne(ctx, bson.M{"_id": objectID})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if result.DeletedCount == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Craftsman not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Craftsman deleted successfully"})
 }

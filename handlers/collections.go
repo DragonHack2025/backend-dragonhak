@@ -18,20 +18,20 @@ type Collection interface {
 
 // Collections holds all MongoDB collections
 var Collections struct {
-	Users             Collection
-	CraftsmanProfiles Collection
-	Crafts            Collection
-	Workshops         Collection
-	Badges            Collection
-	Auctions          Collection
-	Bids              Collection
-	Bookings          Collection
+	Users     Collection
+	Craftsmen Collection
+	Crafts    Collection
+	Workshops Collection
+	Badges    Collection
+	Auctions  Collection
+	Bids      Collection
+	Bookings  Collection
 }
 
 // InitCollections initializes all collections
 func InitCollections(db *mongo.Database) {
 	Collections.Users = db.Collection("users")
-	Collections.CraftsmanProfiles = db.Collection("craftsman_profiles")
+	Collections.Craftsmen = db.Collection("craftsmen")
 	Collections.Crafts = db.Collection("crafts")
 	Collections.Workshops = db.Collection("workshops")
 	Collections.Badges = db.Collection("badges")

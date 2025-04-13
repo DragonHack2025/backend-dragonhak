@@ -262,23 +262,23 @@ func (mc *MockCollection) Find(ctx context.Context, filter interface{}, opts ...
 // SetupTestDB initializes test collections with mock data
 func SetupTestDB(t *testing.T) {
 	Collections = struct {
-		Users             Collection
-		CraftsmanProfiles Collection
-		Crafts            Collection
-		Workshops         Collection
-		Badges            Collection
-		Auctions          Collection
-		Bids              Collection
-		Bookings          Collection
+		Users     Collection
+		Craftsmen Collection
+		Crafts    Collection
+		Workshops Collection
+		Badges    Collection
+		Auctions  Collection
+		Bids      Collection
+		Bookings  Collection
 	}{
-		Users:             &MockCollection{Data: make([]interface{}, 0)},
-		CraftsmanProfiles: &MockCollection{Data: make([]interface{}, 0)},
-		Crafts:            &MockCollection{Data: make([]interface{}, 0)},
-		Workshops:         &MockCollection{Data: make([]interface{}, 0)},
-		Badges:            &MockCollection{Data: make([]interface{}, 0)},
-		Auctions:          &MockCollection{Data: make([]interface{}, 0)},
-		Bids:              &MockCollection{Data: make([]interface{}, 0)},
-		Bookings:          &MockCollection{Data: make([]interface{}, 0)},
+		Users:     &MockCollection{Data: make([]interface{}, 0)},
+		Craftsmen: &MockCollection{Data: make([]interface{}, 0)},
+		Crafts:    &MockCollection{Data: make([]interface{}, 0)},
+		Workshops: &MockCollection{Data: make([]interface{}, 0)},
+		Badges:    &MockCollection{Data: make([]interface{}, 0)},
+		Auctions:  &MockCollection{Data: make([]interface{}, 0)},
+		Bids:      &MockCollection{Data: make([]interface{}, 0)},
+		Bookings:  &MockCollection{Data: make([]interface{}, 0)},
 	}
 }
 
@@ -304,22 +304,22 @@ func CreateTestUser(t *testing.T) primitive.ObjectID {
 // CleanupTestDB cleans up the test database
 func CleanupTestDB(t *testing.T) {
 	Collections = struct {
-		Users             Collection
-		CraftsmanProfiles Collection
-		Crafts            Collection
-		Workshops         Collection
-		Badges            Collection
-		Auctions          Collection
-		Bids              Collection
-		Bookings          Collection
+		Users     Collection
+		Craftsmen Collection
+		Crafts    Collection
+		Workshops Collection
+		Badges    Collection
+		Auctions  Collection
+		Bids      Collection
+		Bookings  Collection
 	}{
-		Users:             &MockCollection{Data: make([]interface{}, 0)},
-		CraftsmanProfiles: &MockCollection{Data: make([]interface{}, 0)},
-		Crafts:            &MockCollection{Data: make([]interface{}, 0)},
-		Workshops:         &MockCollection{Data: make([]interface{}, 0)},
-		Badges:            &MockCollection{Data: make([]interface{}, 0)},
-		Auctions:          &MockCollection{Data: make([]interface{}, 0)},
-		Bids:              &MockCollection{Data: make([]interface{}, 0)},
-		Bookings:          &MockCollection{Data: make([]interface{}, 0)},
+		Users:     &MockCollection{Data: make([]interface{}, 0)},
+		Craftsmen: &MockCollection{Data: make([]interface{}, 0)},
+		Crafts:    &MockCollection{Data: make([]interface{}, 0)},
+		Workshops: &MockCollection{Data: make([]interface{}, 0)},
+		Badges:    &MockCollection{Data: make([]interface{}, 0)},
+		Auctions:  &MockCollection{Data: make([]interface{}, 0)},
+		Bids:      &MockCollection{Data: make([]interface{}, 0)},
+		Bookings:  &MockCollection{Data: make([]interface{}, 0)},
 	}
 }
