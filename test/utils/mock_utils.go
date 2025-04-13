@@ -44,7 +44,7 @@ func NewMockMongoClient(t *testing.T) *MockMongoClient {
 	collections["badges"] = &MockCollection{
 		Documents: make(map[primitive.ObjectID]interface{}),
 	}
-	collections["marketplace_items"] = &MockCollection{
+	collections["auctions"] = &MockCollection{
 		Documents: make(map[primitive.ObjectID]interface{}),
 	}
 	collections["auctions"] = &MockCollection{

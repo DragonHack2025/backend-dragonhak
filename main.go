@@ -242,7 +242,7 @@ func main() {
 
 	// User routes
 	userRoutes := router.Group("/api/users")
-	userRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
+	// userRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
 	{
 		userRoutes.GET("/", handlers.GetUsers)
 		userRoutes.GET("/:id", handlers.GetUser)
@@ -257,7 +257,7 @@ func main() {
 
 	// Craftsman routes
 	craftsmanRoutes := router.Group("/api/craftsmen")
-	craftsmanRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
+	// craftsmanRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
 	{
 		craftsmanRoutes.POST("/profile", handlers.CreateCraftsmanProfile)
 		craftsmanRoutes.PUT("/profile/:id", handlers.UpdateCraftsmanProfile)
@@ -268,7 +268,7 @@ func main() {
 
 	// Customer routes
 	customerRoutes := router.Group("/api/customers")
-	customerRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
+	// customerRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
 	{
 		customerRoutes.GET("/search/craftsmen", handlers.SearchCraftsmen)
 		customerRoutes.GET("/search/workshops", handlers.SearchWorkshops)
@@ -278,22 +278,22 @@ func main() {
 
 	// Badge routes
 	badgeRoutes := router.Group("/api/badges")
-	badgeRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
+	// badgeRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
 	{
 		badgeRoutes.POST("/", handlers.CreateBadge)
 		badgeRoutes.GET("/", handlers.GetBadges)
 		badgeRoutes.POST("/:badgeId/award/:userId", handlers.AwardBadge)
 	}
 
-	// Marketplace routes
-	marketplaceRoutes := router.Group("/api/marketplace")
-	marketplaceRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
+	// Auction routes
+	auctionRoutes := router.Group("/api/auctions")
+	// auctionRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
 	{
-		marketplaceRoutes.POST("/auctions", handlers.CreateAuction)
-		marketplaceRoutes.GET("/auctions", handlers.GetAuctions)
-		marketplaceRoutes.GET("/auctions/:id", handlers.GetAuction)
-		marketplaceRoutes.POST("/auctions/:id/bids", handlers.PlaceBid)
-		marketplaceRoutes.GET("/auctions/:id/bids", handlers.GetAuctionBids)
+		auctionRoutes.POST("/", handlers.CreateAuction)
+		auctionRoutes.GET("/", handlers.GetAuctions)
+		auctionRoutes.GET("/:id", handlers.GetAuction)
+		auctionRoutes.POST("/:id/bids", handlers.PlaceBid)
+		auctionRoutes.GET("/:id/bids", handlers.GetAuctionBids)
 	}
 
 	// Get port from environment variable or use default

@@ -124,17 +124,6 @@ var SampleBadges = []models.Badge{
 	},
 }
 
-// SampleUserBadges provides test user badge data
-var SampleUserBadges = []models.UserBadge{
-	{
-		ID:       primitive.NewObjectID(),
-		UserID:   SampleUsers[0].ID,
-		BadgeID:  SampleBadges[0].ID,
-		EarnedAt: time.Now(),
-		Progress: 100,
-	},
-}
-
 // SampleTransactions provides test transaction data
 var SampleTransactions = []models.Transaction{
 	{

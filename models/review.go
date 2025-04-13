@@ -18,15 +18,6 @@ type Review struct {
 	UpdatedAt   time.Time          `json:"updated_at" bson:"updated_at"`
 }
 
-// UserBadge represents a badge earned by a user
-type UserBadge struct {
-	ID       primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
-	UserID   primitive.ObjectID `json:"user_id" bson:"user_id"`
-	BadgeID  primitive.ObjectID `json:"badge_id" bson:"badge_id"`
-	EarnedAt time.Time          `json:"earned_at" bson:"earned_at"`
-	Progress int                `json:"progress" bson:"progress"` // Progress towards next level (0-100)
-}
-
 // TransactionStatus represents the status of a transaction
 type TransactionStatus string
 

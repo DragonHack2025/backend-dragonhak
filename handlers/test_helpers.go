@@ -267,7 +267,6 @@ func SetupTestDB(t *testing.T) {
 		Crafts            Collection
 		Workshops         Collection
 		Badges            Collection
-		Marketplace       Collection
 		Auctions          Collection
 		Bids              Collection
 		Bookings          Collection
@@ -277,7 +276,6 @@ func SetupTestDB(t *testing.T) {
 		Crafts:            &MockCollection{Data: make([]interface{}, 0)},
 		Workshops:         &MockCollection{Data: make([]interface{}, 0)},
 		Badges:            &MockCollection{Data: make([]interface{}, 0)},
-		Marketplace:       &MockCollection{Data: make([]interface{}, 0)},
 		Auctions:          &MockCollection{Data: make([]interface{}, 0)},
 		Bids:              &MockCollection{Data: make([]interface{}, 0)},
 		Bookings:          &MockCollection{Data: make([]interface{}, 0)},
@@ -311,7 +309,6 @@ func CleanupTestDB(t *testing.T) {
 		Crafts            Collection
 		Workshops         Collection
 		Badges            Collection
-		Marketplace       Collection
 		Auctions          Collection
 		Bids              Collection
 		Bookings          Collection
@@ -321,7 +318,6 @@ func CleanupTestDB(t *testing.T) {
 		Crafts:            &MockCollection{Data: make([]interface{}, 0)},
 		Workshops:         &MockCollection{Data: make([]interface{}, 0)},
 		Badges:            &MockCollection{Data: make([]interface{}, 0)},
-		Marketplace:       &MockCollection{Data: make([]interface{}, 0)},
 		Auctions:          &MockCollection{Data: make([]interface{}, 0)},
 		Bids:              &MockCollection{Data: make([]interface{}, 0)},
 		Bookings:          &MockCollection{Data: make([]interface{}, 0)},

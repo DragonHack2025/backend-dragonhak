@@ -16,7 +16,6 @@ type MockCollections struct {
 	Bookings     []models.WorkshopBooking
 	Reviews      []models.Review
 	Badges       []models.Badge
-	UserBadges   []models.UserBadge
 	Transactions []models.Transaction
 	Craftsmen    []models.Craftsman
 }
@@ -30,7 +29,6 @@ func NewMockCollections() *MockCollections {
 		Bookings:     make([]models.WorkshopBooking, 0),
 		Reviews:      make([]models.Review, 0),
 		Badges:       make([]models.Badge, 0),
-		UserBadges:   make([]models.UserBadge, 0),
 		Transactions: make([]models.Transaction, 0),
 		Craftsmen:    make([]models.Craftsman, 0),
 	}
@@ -76,9 +74,6 @@ func (m *MockDB) InsertOne(ctx context.Context, collection string, document inte
 	case *models.Badge:
 		doc.ID = id
 		m.Collections.Badges = append(m.Collections.Badges, *doc)
-	case *models.UserBadge:
-		doc.ID = id
-		m.Collections.UserBadges = append(m.Collections.UserBadges, *doc)
 	case *models.Transaction:
 		doc.ID = id
 		m.Collections.Transactions = append(m.Collections.Transactions, *doc)
@@ -119,10 +114,6 @@ func (m *MockDB) FindOne(ctx context.Context, collection string, filter interfac
 	case "badges":
 		if badges, ok := result.(*[]models.Badge); ok {
 			*badges = m.Collections.Badges
-		}
-	case "user_badges":
-		if userBadges, ok := result.(*[]models.UserBadge); ok {
-			*userBadges = m.Collections.UserBadges
 		}
 	case "transactions":
 		if transactions, ok := result.(*[]models.Transaction); ok {

@@ -23,7 +23,6 @@ var Collections struct {
 	Crafts            Collection
 	Workshops         Collection
 	Badges            Collection
-	Marketplace       Collection
 	Auctions          Collection
 	Bids              Collection
 	Bookings          Collection
@@ -36,7 +35,6 @@ func InitCollections(db *mongo.Database) {
 	Collections.Crafts = db.Collection("crafts")
 	Collections.Workshops = db.Collection("workshops")
 	Collections.Badges = db.Collection("badges")
-	Collections.Marketplace = db.Collection("marketplace_items")
 	Collections.Auctions = db.Collection("auctions")
 	Collections.Bids = db.Collection("bids")
 	Collections.Bookings = db.Collection("bookings")

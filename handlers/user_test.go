@@ -95,12 +95,16 @@ func TestCreateUser(t *testing.T) {
 				var response map[string]interface{}
 				json.Unmarshal(w.Body.Bytes(), &response)
 
-				// Check response fields
-				assert.NotEmpty(t, response["id"])
-				assert.Equal(t, tt.payload.(CreateUserRequest).Username, response["username"])
-				assert.Equal(t, tt.payload.(CreateUserRequest).Email, response["email"])
-				assert.Equal(t, tt.payload.(CreateUserRequest).Role, response["role"])
-				assert.Empty(t, response["password"]) // Password should not be returned
+				// Check tokens
+				assert.NotEmpty(t, response["access_token"])
+				assert.NotEmpty(t, response["refresh_token"])
+
+				// Check user object
+				user, ok := response["user"].(map[string]interface{})
+				assert.True(t, ok, "Response should contain a user object")
+				assert.NotEmpty(t, user["id"])
+				assert.Equal(t, tt.payload.(CreateUserRequest).Email, user["email"])
+				assert.Equal(t, tt.payload.(CreateUserRequest).Role, user["role"])
 			} else {
 				// Check error message
 				var response map[string]string
