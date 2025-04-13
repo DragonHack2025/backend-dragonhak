@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"backend-dragonhak/config"
 	"backend-dragonhak/handlers"
 	"backend-dragonhak/middleware"
 
@@ -63,6 +64,8 @@ func init() {
 
 	// Add logging for connection check
 	log.Println("Checking MongoDB connection...")
+
+	config.InitCloudinary()
 
 	// Send a ping to confirm a successful connection with retry
 	var pingErr error
@@ -232,6 +235,17 @@ func main() {
 		badgeRoutes.POST("/", handlers.CreateBadge)
 		badgeRoutes.GET("/", handlers.GetBadges)
 		badgeRoutes.POST("/:badgeId/award/:userId", handlers.AwardBadge)
+	}
+
+	// Image routes
+	imageRoutes := router.Group("/api/images")
+	{
+		imageRoutes.GET("/:public_id", handlers.GetImage)
+		imageRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
+		{
+			imageRoutes.POST("/upload", handlers.UploadImage)
+			imageRoutes.DELETE("/:public_id", handlers.DeleteImage)
+		}
 	}
 
 	// Auction routes

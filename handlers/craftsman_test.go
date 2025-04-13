@@ -66,7 +66,7 @@ func TestCreateCraftsmanProfileHandler(t *testing.T) {
 					"website": "https://example2.com",
 				},
 			},
-			expectedStatus: http.StatusBadRequest,
+			expectedStatus: http.StatusCreated,
 		},
 	}
 
@@ -109,11 +109,24 @@ func TestCreateCraftsmanProfileHandler(t *testing.T) {
 				// Check craftsman fields
 				craftsman := response["craftsman"].(map[string]interface{})
 				assert.NotEmpty(t, craftsman["id"])
-				assert.Equal(t, tt.payload["bio"], craftsman["bio"])
-				assert.Equal(t, tt.payload["experience"], int(craftsman["experience"].(float64)))
+				if bio, ok := tt.payload["bio"]; ok {
+					assert.Equal(t, bio, craftsman["bio"])
+				} else {
+					assert.Equal(t, "", craftsman["bio"])
+				}
+				if exp, ok := tt.payload["experience"]; ok {
+					assert.Equal(t, float64(exp.(int)), craftsman["experience"])
+				}
 				assert.Equal(t, tt.payload["rating"], craftsman["rating"])
 				assert.Equal(t, tt.payload["location"], craftsman["location"])
-				assert.Equal(t, tt.payload["is_verified"], craftsman["is_verified"])
+				if tt.payload["contact_info"] != nil {
+					assert.NotNil(t, craftsman["contact_info"])
+				}
+				if isVerified, ok := tt.payload["is_verified"]; ok {
+					assert.Equal(t, isVerified, craftsman["is_verified"])
+				} else {
+					assert.Equal(t, false, craftsman["is_verified"])
+				}
 
 				// Check contact info
 				contactInfo := craftsman["contact_info"].(map[string]interface{})

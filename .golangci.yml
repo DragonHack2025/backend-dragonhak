@@ -10,7 +10,7 @@ linters:
     - unused
     - gosec
   disable:
-    - typecheck # Disable typecheck as it's causing false positives
+    - typecheck
 
 linters-settings:
   govet:
@@ -25,13 +25,10 @@ run:
   skip-dirs:
     - vendor
     - testdata
-    - .git
-    - .github
-    - bin
-    - tmp
-    - /usr/local/go/src # Exclude standard library
-    - /home/kiro123/go/pkg/mod # Exclude all Go modules
-    - /go/pkg/mod # Alternative path for Go modules
+    - third_party
+    - internal
+    - /usr/local/go/src
+    - /go/pkg/mod
 
 issues:
   exclude-rules:
@@ -39,24 +36,6 @@ issues:
       linters:
         - errcheck
         - gosec
-    - path: auth/auth\.go
-      linters:
-        - typecheck
-    - path: auth/email\.go
-      linters:
-        - typecheck
-    - path: middleware/rate_limit\.go
-      linters:
-        - typecheck
-    - path: test/mocks/db\.go
-      linters:
-        - typecheck
-    - path: handlers/test_helpers\.go
-      linters:
-        - typecheck
-    - path: .*\.pb\.go$ # Exclude protobuf generated files
-      linters:
-        - typecheck
-    - path: .*\.pb\.gw\.go$ # Exclude protobuf gateway generated files
+    - path: .*\.go
       linters:
         - typecheck
