@@ -31,6 +31,8 @@ func TestCreateUser(t *testing.T) {
 		{
 			name: "Valid user creation",
 			payload: CreateUserRequest{
+				Name:     "John",
+				Surname:  "Doe",
 				Username: "testuser",
 				Email:    "test@example.com",
 				Password: "StrongP@ss123",
@@ -39,8 +41,34 @@ func TestCreateUser(t *testing.T) {
 			expectedStatus: http.StatusCreated,
 		},
 		{
+			name: "Missing name",
+			payload: CreateUserRequest{
+				Surname:  "Doe",
+				Username: "testuser",
+				Email:    "test@example.com",
+				Password: "StrongP@ss123",
+				Role:     "customer",
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "Key: 'CreateUserRequest.Name' Error:Field validation for 'Name' failed on the 'required' tag",
+		},
+		{
+			name: "Missing surname",
+			payload: CreateUserRequest{
+				Name:     "John",
+				Username: "testuser",
+				Email:    "test@example.com",
+				Password: "StrongP@ss123",
+				Role:     "customer",
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "Key: 'CreateUserRequest.Surname' Error:Field validation for 'Surname' failed on the 'required' tag",
+		},
+		{
 			name: "Invalid email format",
 			payload: CreateUserRequest{
+				Name:     "John",
+				Surname:  "Doe",
 				Username: "testuser",
 				Email:    "invalid-email",
 				Password: "StrongP@ss123",
@@ -52,6 +80,8 @@ func TestCreateUser(t *testing.T) {
 		{
 			name: "Weak password",
 			payload: CreateUserRequest{
+				Name:     "John",
+				Surname:  "Doe",
 				Username: "testuser",
 				Email:    "test@example.com",
 				Password: "weak",
@@ -63,6 +93,8 @@ func TestCreateUser(t *testing.T) {
 		{
 			name: "Invalid role",
 			payload: CreateUserRequest{
+				Name:     "John",
+				Surname:  "Doe",
 				Username: "testuser",
 				Email:    "test@example.com",
 				Password: "StrongP@ss123",

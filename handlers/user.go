@@ -64,6 +64,8 @@ func GetUser(c *gin.Context) {
 }
 
 type CreateUserRequest struct {
+	Name     string `json:"name" binding:"required"`
+	Surname  string `json:"surname" binding:"required"`
 	Username string `json:"username" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
@@ -121,6 +123,8 @@ func CreateUser(c *gin.Context) {
 
 	// Create new user
 	user := models.User{
+		Name:      req.Name,
+		Surname:   req.Surname,
 		Username:  req.Username,
 		Email:     req.Email,
 		Password:  hashedPassword,
@@ -155,9 +159,11 @@ func CreateUser(c *gin.Context) {
 		"access_token":  tokenPair.AccessToken,
 		"refresh_token": tokenPair.RefreshToken,
 		"user": gin.H{
-			"id":    user.ID.Hex(),
-			"email": user.Email,
-			"role":  user.Role,
+			"id":      user.ID.Hex(),
+			"name":    user.Name,
+			"surname": user.Surname,
+			"email":   user.Email,
+			"role":    user.Role,
 		},
 	})
 }

@@ -93,6 +93,8 @@ func init() {
 	handlers.Collections.Craftsmen = db.Collection("craftsmen")
 	handlers.Collections.Crafts = db.Collection("crafts")
 	handlers.Collections.Workshops = db.Collection("workshops")
+	handlers.Collections.Auctions = db.Collection("auctions")
+	handlers.Collections.Bids = db.Collection("bids")
 
 	// Get Redis address from environment
 	redisAddr := os.Getenv("REDIS_ADDR")
