@@ -179,6 +179,7 @@ func main() {
 	{
 		authRoutes.POST("/login", handlers.Login)
 		authRoutes.POST("/register", handlers.CreateUser)
+		authRoutes.POST("/register/craftsman", handlers.CreateCraftsmanProfile)
 		authRoutes.POST("/refresh", handlers.RefreshToken)
 		authRoutes.POST("/logout", middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")), handlers.Logout)
 	}
@@ -200,13 +201,14 @@ func main() {
 
 	// Craftsman routes
 	craftsmanRoutes := router.Group("/api/craftsmen")
-	// craftsmanRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
 	{
-		craftsmanRoutes.POST("", handlers.CreateCraftsmanProfile)
-		craftsmanRoutes.GET("", handlers.GetCraftsmen)
-		craftsmanRoutes.GET("/:id", handlers.GetCraftsman)
-		craftsmanRoutes.PUT("/:id", handlers.UpdateCraftsman)
-		craftsmanRoutes.DELETE("/:id", handlers.DeleteCraftsman)
+		craftsmanRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
+		{
+			craftsmanRoutes.GET("", handlers.GetCraftsmen)
+			craftsmanRoutes.GET("/:id", handlers.GetCraftsman)
+			craftsmanRoutes.PUT("/:id", handlers.UpdateCraftsman)
+			craftsmanRoutes.DELETE("/:id", handlers.DeleteCraftsman)
+		}
 	}
 
 	// Customer routes
