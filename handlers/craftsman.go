@@ -24,11 +24,11 @@ func CreateCraftsmanProfile(c *gin.Context) {
 		Username    string                    `json:"username" binding:"required"`
 		Email       string                    `json:"email" binding:"required,email"`
 		Password    string                    `json:"password" binding:"required,min=8"`
-		Bio         string                    `json:"bio" binding:"required"`
-		Experience  int                       `json:"experience" binding:"required,min=0"`
+		Bio         string                    `json:"bio"`
+		Experience  int                       `json:"experience"`
 		Rating      float64                   `json:"rating" binding:"required,min=0,max=5"`
 		Location    string                    `json:"location" binding:"required"`
-		ContactInfo models.ContactInformation `json:"contact_info" binding:"required"`
+		ContactInfo models.ContactInformation `json:"contact_info"`
 		IsVerified  bool                      `json:"is_verified"`
 	}
 
