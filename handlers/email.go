@@ -23,6 +23,12 @@ func NewEmailVerifier(redisAddr string) *EmailVerifier {
 	}
 }
 
+func NewDummyEmailVerifier() *EmailVerifier {
+	return &EmailVerifier{
+		verifier: &auth.EmailVerifier{},
+	}
+}
+
 // SendVerificationEmail generates a verification token and sends it to the user's email
 func (ev *EmailVerifier) SendVerificationEmail(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

@@ -2,242 +2,223 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
-	"backend-dragonhak/models"
-
-	"github.com/gin-gonic/gin"
+	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"backend-dragonhak/models"
+	"backend-dragonhak/utils"
 )
 
-// CreateMarketplaceItem creates a new marketplace item
-func CreateMarketplaceItem(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	var item models.MarketplaceItem
-	if err := c.ShouldBindJSON(&item); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid item data: " + err.Error()})
+// CreateAuction handles the creation of a new auction
+func CreateAuction(w http.ResponseWriter, r *http.Request) {
+	var auction models.Auction
+	if err := json.NewDecoder(r.Body).Decode(&auction); err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
 	// Validate required fields
-	if item.Title == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Item title is required"})
+	if auction.Item.Title == "" {
+		utils.RespondWithError(w, http.StatusBadRequest, "Auction title is required")
 		return
 	}
-	if item.Price <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Price must be greater than 0"})
+	if auction.StartingPrice <= 0 {
+		utils.RespondWithError(w, http.StatusBadRequest, "Starting price must be greater than 0")
 		return
 	}
-	if item.Type != models.ItemTypeSale && item.Type != models.ItemTypeAuction {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid item type"})
+	if auction.EndTime.Before(time.Now()) {
+		utils.RespondWithError(w, http.StatusBadRequest, "End time must be in the future")
 		return
 	}
 
-	// Set timestamps
-	item.CreatedAt = time.Now()
-	item.UpdatedAt = time.Now()
-	item.Status = models.ItemStatusActive
+	// Set initial values
+	auction.ID = primitive.NewObjectID()
+	auction.Item.ID = primitive.NewObjectID()
+	auction.CurrentPrice = auction.StartingPrice
+	auction.IsActive = true
+	auction.CreatedAt = time.Now()
+	auction.UpdatedAt = time.Now()
+	auction.StartTime = time.Now()
 
-	// If it's an auction item, create an auction
-	if item.Type == models.ItemTypeAuction {
-		auction := models.Auction{
-			ItemID:        item.ID,
-			StartingPrice: item.Price,
-			CurrentPrice:  item.Price,
-			StartTime:     time.Now(),
-			EndTime:       time.Now().Add(7 * 24 * time.Hour),
-			Status:        models.ItemStatusActive,
-			CreatedAt:     time.Now(),
-			UpdatedAt:     time.Now(),
-		}
+	// Get seller ID from context
+	userID := r.Context().Value("userID").(primitive.ObjectID)
+	auction.SellerID = userID
 
-		auctionResult, err := Collections.Auctions.InsertOne(ctx, auction)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create auction: " + err.Error()})
-			return
-		}
-		auction.ID = auctionResult.InsertedID.(primitive.ObjectID)
-	}
-
-	result, err := Collections.Marketplace.InsertOne(ctx, item)
+	// Insert the auction into the database
+	_, err := Collections.Auctions.InsertOne(context.Background(), auction)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create item: " + err.Error()})
+		utils.RespondWithError(w, http.StatusInternalServerError, "Error creating auction")
 		return
 	}
 
-	item.ID = result.InsertedID.(primitive.ObjectID)
-	c.JSON(http.StatusCreated, item)
+	utils.RespondWithJSON(w, http.StatusCreated, auction)
 }
 
-// GetMarketplaceItems retrieves all marketplace items with optional filters
-func GetMarketplaceItems(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+// GetAuctions retrieves all auctions with optional filters
+func GetAuctions(w http.ResponseWriter, r *http.Request) {
+	collection := Collections.Auctions
 
-	// Get query parameters
-	category := c.Query("category")
-	itemType := c.Query("type")
-	status := c.Query("status")
-
-	// Build filter
+	// Build filter based on query parameters
 	filter := bson.M{}
-	if category != "" {
-		filter["category"] = category
+	if category := r.URL.Query().Get("category"); category != "" {
+		filter["item.category"] = category
 	}
-	if itemType != "" {
-		filter["type"] = itemType
-	}
-	if status != "" {
-		filter["status"] = status
+	if active := r.URL.Query().Get("active"); active == "true" {
+		filter["is_active"] = true
+		filter["end_time"] = bson.M{"$gt": time.Now()}
 	}
 
-	var items []models.MarketplaceItem
-	cursor, err := Collections.Marketplace.Find(ctx, filter)
+	// Set up options for sorting and pagination
+	findOptions := options.Find()
+	findOptions.SetSort(bson.D{{Key: "created_at", Value: -1}})
+
+	cursor, err := collection.Find(context.Background(), filter, findOptions)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.RespondWithError(w, http.StatusInternalServerError, "Error retrieving auctions")
 		return
 	}
-	defer cursor.Close(ctx)
+	defer cursor.Close(context.Background())
 
-	for cursor.Next(ctx) {
-		var item models.MarketplaceItem
-		if err := cursor.Decode(&item); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	var auctions []models.Auction
+	if err := cursor.All(context.Background(), &auctions); err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Error decoding auctions")
+		return
+	}
+
+	utils.RespondWithJSON(w, http.StatusOK, auctions)
+}
+
+// GetAuction retrieves a specific auction by ID
+func GetAuction(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	auctionID, err := primitive.ObjectIDFromHex(params["id"])
+	if err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid auction ID")
+		return
+	}
+
+	collection := Collections.Auctions
+	var auction models.Auction
+	err = collection.FindOne(context.Background(), bson.M{"_id": auctionID}).Decode(&auction)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			utils.RespondWithError(w, http.StatusNotFound, "Auction not found")
 			return
 		}
-		items = append(items, item)
-	}
-
-	c.JSON(http.StatusOK, items)
-}
-
-// GetMarketplaceItem retrieves a specific marketplace item
-func GetMarketplaceItem(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	id := c.Param("id")
-	objID, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
+		utils.RespondWithError(w, http.StatusInternalServerError, "Error retrieving auction")
 		return
 	}
 
-	var item models.MarketplaceItem
-	err = Collections.Marketplace.FindOne(ctx, bson.M{"_id": objID}).Decode(&item)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Item not found"})
-		return
-	}
-
-	c.JSON(http.StatusOK, item)
+	utils.RespondWithJSON(w, http.StatusOK, auction)
 }
 
-// PlaceBid places a bid on an auction item
-func PlaceBid(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	auctionID := c.Param("auctionId")
-	auctionObjID, err := primitive.ObjectIDFromHex(auctionID)
+// PlaceBid handles placing a bid on an auction
+func PlaceBid(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	auctionID, err := primitive.ObjectIDFromHex(params["id"])
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid auction ID format"})
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid auction ID")
 		return
 	}
 
 	var bid models.Bid
-	if err := c.ShouldBindJSON(&bid); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := json.NewDecoder(r.Body).Decode(&bid); err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
-	// Get the auction
-	var auction models.Auction
-	err = Collections.Auctions.FindOne(ctx, bson.M{"_id": auctionObjID}).Decode(&auction)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Auction not found"})
-		return
-	}
-
-	// Check if auction is still active
-	if auction.Status != models.ItemStatusActive {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Auction is not active"})
-		return
-	}
-
-	// Check if bid amount is higher than current price
-	if bid.Amount <= auction.CurrentPrice {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Bid amount must be higher than current price"})
-		return
-	}
-
-	// Create the bid
+	// Get bidder ID from context
+	userID := r.Context().Value("userID").(primitive.ObjectID)
+	bid.BidderID = userID
+	bid.AuctionID = auctionID
 	bid.ID = primitive.NewObjectID()
-	bid.AuctionID = auctionObjID
 	bid.CreatedAt = time.Now()
+
+	collection := Collections.Auctions
+	var auction models.Auction
+	err = collection.FindOne(context.Background(), bson.M{"_id": auctionID}).Decode(&auction)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			utils.RespondWithError(w, http.StatusNotFound, "Auction not found")
+			return
+		}
+		utils.RespondWithError(w, http.StatusInternalServerError, "Error retrieving auction")
+		return
+	}
+
+	// Validate bid
+	if !auction.IsActive || time.Now().After(auction.EndTime) {
+		utils.RespondWithError(w, http.StatusBadRequest, "Auction is not active")
+		return
+	}
+	if bid.Amount <= auction.CurrentPrice {
+		utils.RespondWithError(w, http.StatusBadRequest, "Bid amount must be higher than current price")
+		return
+	}
+	if auction.SellerID == userID {
+		utils.RespondWithError(w, http.StatusBadRequest, "Seller cannot bid on their own auction")
+		return
+	}
 
 	// Update auction with new bid
 	update := bson.M{
 		"$set": bson.M{
 			"current_price": bid.Amount,
+			"last_bid":      bid,
 			"updated_at":    time.Now(),
 		},
-		"$push": bson.M{
-			"bids": bid,
-		},
 	}
 
-	_, err = Collections.Auctions.UpdateOne(ctx, bson.M{"_id": auctionObjID}, update)
+	_, err = collection.UpdateOne(context.Background(), bson.M{"_id": auctionID}, update)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to place bid"})
+		utils.RespondWithError(w, http.StatusInternalServerError, "Error updating auction")
 		return
 	}
 
-	// Save the bid
-	_, err = Collections.Bids.InsertOne(ctx, bid)
+	// Save bid in bids collection
+	bidsCollection := Collections.Bids
+	_, err = bidsCollection.InsertOne(context.Background(), bid)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save bid"})
+		utils.RespondWithError(w, http.StatusInternalServerError, "Error saving bid")
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "Bid placed successfully",
-		"bid":     bid,
-	})
+	utils.RespondWithJSON(w, http.StatusOK, bid)
 }
 
-// GetAuctionBids retrieves all bids for an auction
-func GetAuctionBids(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	auctionID := c.Param("auctionId")
-	auctionObjID, err := primitive.ObjectIDFromHex(auctionID)
+// GetAuctionBids retrieves all bids for a specific auction
+func GetAuctionBids(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	auctionID, err := primitive.ObjectIDFromHex(params["id"])
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid auction ID format"})
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid auction ID")
 		return
 	}
+
+	collection := Collections.Bids
+	findOptions := options.Find()
+	findOptions.SetSort(bson.D{{Key: "amount", Value: -1}})
+
+	cursor, err := collection.Find(context.Background(), bson.M{"auction_id": auctionID}, findOptions)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Error retrieving bids")
+		return
+	}
+	defer cursor.Close(context.Background())
 
 	var bids []models.Bid
-	cursor, err := Collections.Bids.Find(ctx, bson.M{"auction_id": auctionObjID})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if err := cursor.All(context.Background(), &bids); err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Error decoding bids")
 		return
 	}
-	defer cursor.Close(ctx)
 
-	for cursor.Next(ctx) {
-		var bid models.Bid
-		if err := cursor.Decode(&bid); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		bids = append(bids, bid)
-	}
-
-	c.JSON(http.StatusOK, bids)
+	utils.RespondWithJSON(w, http.StatusOK, bids)
 }

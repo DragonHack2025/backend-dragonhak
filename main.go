@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"log"
+	"math"
+	"net/http"
 	"os"
 	"strconv"
 	"time"
@@ -97,12 +99,72 @@ func init() {
 	// Get Redis address from environment
 	redisAddr := os.Getenv("REDIS_ADDR")
 	if redisAddr == "" {
-		log.Fatal("REDIS_ADDR environment variable is not set")
+		log.Println("REDIS_ADDR not set, rate limiting and email verification will be disabled")
+		rateLimiter = middleware.NewDummyRateLimiter()
+		emailVerifier = handlers.NewDummyEmailVerifier()
+		return
 	}
 
-	// Initialize rate limiter
+	// Try to initialize rate limiter and email verifier
 	rateLimiter = middleware.NewRateLimiter(redisAddr)
 	emailVerifier = handlers.NewEmailVerifier(redisAddr)
+}
+
+// Initialize MongoDB client
+func initMongoDB() (*mongo.Client, *mongo.Database) {
+	uri := os.Getenv("MONGODB_URI")
+	if uri == "" {
+		log.Fatal("MONGODB_URI environment variable not set")
+	}
+
+	// Configure MongoDB client options
+	clientOptions := options.Client().
+		ApplyURI(uri).
+		SetServerSelectionTimeout(5 * time.Second).
+		SetSocketTimeout(10 * time.Second).
+		SetTLSConfig(&tls.Config{})
+
+	// Create MongoDB client
+	client, err := mongo.Connect(context.Background(), clientOptions)
+	if err != nil {
+		log.Fatalf("Failed to create MongoDB client: %v", err)
+	}
+
+	// Retry connection with exponential backoff
+	maxRetries := 3
+	for i := 0; i < maxRetries; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		err = client.Ping(ctx, readpref.Primary())
+		cancel()
+
+		if err == nil {
+			log.Println("Successfully connected to MongoDB")
+			break
+		}
+
+		if i == maxRetries-1 {
+			log.Fatalf("Failed to connect to MongoDB after %d retries. Last error: %v", maxRetries, err)
+		}
+
+		// Log detailed error information
+		log.Printf("Connection attempt %d failed: %v", i+1, err)
+		if cmdErr, ok := err.(mongo.CommandError); ok {
+			log.Printf("MongoDB Command Error - Code: %d, Message: %s", cmdErr.Code, cmdErr.Message)
+		}
+
+		// Exponential backoff
+		time.Sleep(time.Duration(math.Pow(2, float64(i))) * time.Second)
+	}
+
+	// Get database name from environment
+	dbName := os.Getenv("MONGODB_DATABASE")
+	if dbName == "" {
+		log.Fatal("MONGODB_DATABASE environment variable not set")
+	}
+
+	// Initialize database and return
+	db := client.Database(dbName)
+	return client, db
 }
 
 func main() {
@@ -225,11 +287,11 @@ func main() {
 	marketplaceRoutes := router.Group("/api/marketplace")
 	marketplaceRoutes.Use(middleware.AuthMiddleware(os.Getenv("JWT_ACCESS_SECRET")))
 	{
-		marketplaceRoutes.POST("/items", handlers.CreateMarketplaceItem)
-		marketplaceRoutes.GET("/items", handlers.GetMarketplaceItems)
-		marketplaceRoutes.GET("/items/:id", handlers.GetMarketplaceItem)
-		marketplaceRoutes.POST("/auctions/:auctionId/bids", handlers.PlaceBid)
-		marketplaceRoutes.GET("/auctions/:auctionId/bids", handlers.GetAuctionBids)
+		marketplaceRoutes.POST("/auctions", wrapHandler(handlers.CreateAuction))
+		marketplaceRoutes.GET("/auctions", wrapHandler(handlers.GetAuctions))
+		marketplaceRoutes.GET("/auctions/:id", wrapHandler(handlers.GetAuction))
+		marketplaceRoutes.POST("/auctions/:id/bids", wrapHandler(handlers.PlaceBid))
+		marketplaceRoutes.GET("/auctions/:id/bids", wrapHandler(handlers.GetAuctionBids))
 	}
 
 	// Get port from environment variable or use default
@@ -242,5 +304,12 @@ func main() {
 	log.Printf("Server starting on port %s in %s mode", port, gin.Mode())
 	if err := router.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
+	}
+}
+
+// wrapHandler converts a standard http.HandlerFunc to a gin.HandlerFunc
+func wrapHandler(handler func(http.ResponseWriter, *http.Request)) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		handler(c.Writer, c.Request)
 	}
 }

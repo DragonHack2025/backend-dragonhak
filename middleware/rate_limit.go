@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -11,29 +13,45 @@ import (
 
 type RateLimiter struct {
 	client *redis.Client
+	dummy  bool
 }
 
-func NewRateLimiter(redisAddr string) *RateLimiter {
+func NewRateLimiter(addr string) *RateLimiter {
 	client := redis.NewClient(&redis.Options{
-		Addr: redisAddr,
+		Addr: addr,
 	})
-	return &RateLimiter{client: client}
+	return &RateLimiter{
+		client: client,
+		dummy:  false,
+	}
+}
+
+func NewDummyRateLimiter() *RateLimiter {
+	return &RateLimiter{
+		dummy: true,
+	}
 }
 
 func (rl *RateLimiter) Limit(maxRequests int, window time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Use IP address as the key
-		key := c.ClientIP()
-
-		// Get current count
-		count, err := rl.client.Get(c, key).Int()
-		if err != nil && err != redis.Nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
-			c.Abort()
+		if rl.dummy {
+			c.Next()
 			return
 		}
 
-		// If count exceeds max requests, return error
+		key := fmt.Sprintf("rate_limit:%s", c.ClientIP())
+		ctx := context.Background()
+
+		count, err := rl.client.Get(ctx, key).Int()
+		if err == redis.Nil {
+			rl.client.Set(ctx, key, 1, window)
+			c.Next()
+			return
+		} else if err != nil {
+			c.Next() // On error, let the request through
+			return
+		}
+
 		if count >= maxRequests {
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"error":       "Too many requests",
@@ -43,18 +61,16 @@ func (rl *RateLimiter) Limit(maxRequests int, window time.Duration) gin.HandlerF
 			return
 		}
 
-		// Increment count
 		pipe := rl.client.Pipeline()
-		pipe.Incr(c, key)
-		pipe.Expire(c, key, window)
-		_, err = pipe.Exec(c)
+		pipe.Incr(ctx, key)
+		pipe.Expire(ctx, key, window)
+		_, err = pipe.Exec(ctx)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 			c.Abort()
 			return
 		}
 
-		// Add remaining requests to header
 		remaining := maxRequests - count - 1
 		c.Header("X-RateLimit-Remaining", strconv.Itoa(remaining))
 		c.Header("X-RateLimit-Reset", strconv.FormatInt(time.Now().Add(window).Unix(), 10))
